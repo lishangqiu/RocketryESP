@@ -141,7 +141,7 @@ void meansensors(){
 }
 
 void calibration(){
-  ax_offset=-   /8;
+  ax_offset=-mean_ax/8;
   ay_offset=-mean_ay/8;
   az_offset=(16384-mean_az)/8;
 
