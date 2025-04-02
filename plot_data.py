@@ -33,10 +33,10 @@ def estimate_altitude_from_acceleration(ax, ay, az, g=9.81):
   dt = np.gradient(data['timestamp'])  # Time intervals
   velocity = np.cumsum(vertical_acceleration * dt)  # Integrate acceleration to get velocity
   altitude = np.cumsum(velocity * dt)  # Integrate velocity to get altitude
-  return altitude
+  return vertical_acceleration
 
 # Read CSV file
-file_path = "./data_plot/LOGGER11.csv"  # Replace with your CSV file path
+file_path = "/home/david/Documents/Rocketry/Rockety1/data_plot/LOGGER72.CSV"  # Replace with your CSV file path
 data = pd.read_csv(file_path)
 print(data.columns)
 # Extract accelerometer data

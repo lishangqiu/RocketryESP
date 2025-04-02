@@ -105,16 +105,6 @@ void setup() {
         Serial.println("Write failed.");
     }
 
-    myServo.attach(22);  // Attach the servo to pin 9
-    // myServo.write(90);  // Set servo to 90 degrees
-
-    while(1) {
-        myServo.write(90);  // Set servo to 90 degrees
-        delay(1000);
-        myServo.write(50);
-        delay(1000);
-    }
-
 }
 float pressure_to_altitude(float pressure_pa)
 {
@@ -151,7 +141,7 @@ void loop() {
         file.flush();
     }
 
-    if (!started_logging && altitude>1) started_logging = true;
+    // if (!started_logging && altitude>1) started_logging = true;
 
     if (started_logging) {
         interval = 100;
