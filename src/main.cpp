@@ -17,7 +17,7 @@ BMP581 pressureSensor;
 File file;
 float initialPressure = 0.0;
 void setup() {
-    Serial.begin(9600);
+    Serial.begin(115200);
 
     Wire.begin();
     Wire2.begin();
@@ -116,7 +116,7 @@ float pressure_to_altitude(float pressure_pa)
 
 long interval = 500;
 static unsigned long previousMillis = 0;
-bool started_logging = false;
+bool started_logging = true;
 void loop() {
     unsigned long currentMillis = millis();
     bmp5_sensor_data data = {0,0};
@@ -141,7 +141,7 @@ void loop() {
         file.flush();
     }
 
-    // if (!started_logging && altitude>1) started_logging = true;
+    if (!started_logging && altitude>1) started_logging = true;
 
     if (started_logging) {
         interval = 100;
@@ -163,5 +163,5 @@ void loop() {
         digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
     }
 
-    delay(10);  // Delay for a short period
+    delay(1);  // Delay for a short period
 }

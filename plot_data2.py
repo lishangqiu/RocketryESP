@@ -38,8 +38,17 @@ def estimate_altitude_from_acceleration(ax, ay, az, g=9.81):
 # Read CSV file
 file_path = "/home/david/Documents/Rocketry/Rockety1/data_plot/4_4_1.CSV"  # Replace with your CSV file path
 data = pd.read_csv(file_path)
+apogee_idx = data['alt'].idxmax()
+
+# Filter the data up to (but not including) apogee
+data = data.iloc[:apogee_idx]
 data['timestamp'] = (data['timestamp'] - data['timestamp'].min())/1000
-# data = data[data['timestamp'] > 250]
+print(data['timestamp'])
+data = data[data['timestamp'] > 130]
+data = data[data['timestamp'] < 151]
+data['timestamp'] = (data['timestamp'] - data['timestamp'].min())
+
+timestamp = data['timestamp']
 
 print(data.columns)
 ax = data['a_x']
@@ -55,56 +64,43 @@ az = data['a_z']# Extract accelerometer data
 # print(9.81-np.average(c_az))
 az += (0.09688717948717951)
 
-a_vec = np.stack([ax, ay, az], axis=1)
-stationary = data[data['timestamp'] < 280]
-g_vec = np.array([stationary['a_x'].mean(),
-                  stationary['a_y'].mean(),
-                  stationary['a_z'].mean()])
-g_unit = g_vec / np.linalg.norm(g_vec)
-
-# Project each acceleration vector onto the gravity vector
-a_proj_on_g = np.dot(a_vec, g_unit)  # scalar projection
-a_vertical = a_proj_on_g - 9.81  # dynamic vertical acceleration
-
-# Add to dataframe
-data['a_vertical'] = a_vertical
 
 
-
-alpha = 0.01  # tuning parameter (between 0 and 1)
-
-# Assume `dt` is your time step (seconds), already computed
-# Initialize altitude estimates
-alt_acc = 0
-alt_fused = [0,]
-
-vel = 0
-for i in range(1, len(data)):
-    dt = data['timestamp'].iloc[i] - data['timestamp'].iloc[i-1]
-    # Integrate acceleration twice to get altitude
-    acc_z = data['a_vertical'].iloc[i]
-    vel = vel + acc_z * dt
-    alt_acc = alt_acc + vel * dt
-
-    # Fuse the altitudes
-    alt_baro = data['alt']
-    # print(alt_acc)
-    # print(alt_baro.iloc[i])
-    fused = alpha * (alt_acc) + (1 - alpha) * alt_baro.iloc[i]
-    # fused = data['alt'].iloc[i]
-    alt_fused.append(fused)
-
-# Extract pressure data
 pres = data['pres']
 
 # Estimate attitudes
 pitch, roll = estimate_attitude(ax, ay, az)
 
 # Estimate altitude from pressure
-altitude_from_pressure = data['alt']
-
+alt = altitude_from_pressure = data['alt'].to_numpy()
 # Estimate altitude from acceleration
 altitude_from_acceleration = estimate_altitude_from_acceleration(ax, ay, az)
+
+time = data['timestamp'].to_numpy()
+
+vel = np.zeros_like(alt)
+for i in range(1, len(alt)):
+    dt = time[i] - time[i-1]
+    if dt > 0:
+        vel[i] = (alt[i] - alt[i-1]) / dt
+    else:
+        vel[i] = vel[i-1]  # fallback in case of 0 time diff
+
+# 2. Outlier removal: clamp extreme velocities (manual threshold)
+max_change = 100  # max vertical speed in m/s, tune as needed
+for i in range(len(vel)):
+    if abs(vel[i]) > max_change:
+        vel[i] = vel[i-1]  # simple clamping
+
+# 3. Low-pass filter: exponential moving average
+alpha = 0.1  # smoothing factor (between 0 and 1), smaller = smoother
+vel_smoothed = np.zeros_like(vel)
+vel_smoothed[0] = vel[0]
+for i in range(1, len(vel)):
+    vel_smoothed[i] = alpha * vel[i] + (1 - alpha) * vel_smoothed[i-1]
+
+# Save to dataframe
+data['vel_from_alt'] = vel_smoothed
 
 # Plot the results
 plt.figure(figsize=(12, 10))
@@ -122,23 +118,35 @@ plt.grid()
 # Plot altitude from pressure
 plt.subplot(3, 1, 2)
 print(np.max(altitude_from_pressure))
-plt.plot(data['timestamp'], altitude_from_pressure, label='Altitude from Pressure (meters)', color='green')
+plt.plot(data['timestamp'], altitude_from_pressure, label='Altitude from Pressure (meters)', color='green', marker='o', markersize=6)
 plt.title('Estimated Altitude from Barometric Pressure')
 plt.xlabel('Timestamp')
 plt.ylabel('Altitude (meters)')
 plt.legend()
 plt.grid()
 
-# Plot altitude from acceleration
+# Plot altitude from acceleration 
 plt.subplot(3, 1, 3)
 
 # print(alt_fused)
-plt.plot(data['timestamp'], alt_fused, label='Altitude from Acceleration (meters)', color='red')
+plt.plot(data['timestamp'], data['vel_from_alt'] , label='velocity', color='red', marker='o', markersize=6)
 plt.title('Estimated Altitude from Accelerometer Data')
 plt.xlabel('Timestamp')
-plt.ylabel('Altitude (meters)')
+plt.ylabel('Velocity (meters)')
 plt.legend()
 plt.grid()
 
+apogee = alt.max()
+
+# 2. Compute altitude-to-apogee
+data['alt_to_apogee'] = apogee - alt
+
+# 3. Plot
+plt.figure(figsize=(8, 5))
+plt.plot(vel, data['alt_to_apogee'], marker='o', linestyle='-', linewidth=1)
+plt.xlabel("Altitude to Apogee (m)")
+plt.ylabel("Vertical Velocity (m/s)")
+plt.title("Altitude to Apogee vs Velocity")
+plt.grid(True)
 plt.tight_layout()
 plt.show()
